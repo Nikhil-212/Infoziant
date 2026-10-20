@@ -1,0 +1,32 @@
+# ── Environment ───────────────────────────────
+.env
+.env.local
+.env.production
+
+# ── Dependencies ──────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── Build outputs ─────────────────────────────
+dist/
+build/
+.vite/
+
+# ── Uploads (local dev — never commit PDFs) ──
+uploads/
+backend/uploads/
+
+# ── Logs ──────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+
+# ── OS / editor ───────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ── Test artifacts ────────────────────────────
+coverage/

@@ -1,0 +1,15 @@
+# Backend .dockerignore
+# Exclude everything that should not enter the Docker build context.
+
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+npm-debug.log*
+uploads/
+tests/
+*.test.js
+*.md
+.dockerignore

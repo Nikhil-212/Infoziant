@@ -1,0 +1,9 @@
+# Frontend .dockerignore
+.git
+.gitignore
+.env
+.env.*
+node_modules
+dist
+*.md
+.dockerignore

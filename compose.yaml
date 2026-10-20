@@ -1,0 +1,136 @@
+# compose.yaml — VehicleVault production-oriented Docker Compose configuration
+#
+# Services:
+#   frontend  — React SPA served by Nginx; public entry point; proxies /api to backend
+#   backend   — Express API; connects to mongodb; mounts named volume for PDFs
+#   mongodb   — MongoDB; stores database files in a named volume
+#
+# Named volumes (Assignment 1 & 2 requirement):
+#   vehicle_documents — stores uploaded PDF files at /app/uploads in the backend container
+#   mongodb_data      — stores MongoDB data files
+#
+# Only the frontend (Nginx) exposes a port to the host.
+# The backend and MongoDB communicate on the internal 'app-network'.
+#
+# Usage:
+#   cp .env.example .env   # fill in real values
+#   docker compose up --build -d
+#
+# NEVER run 'docker compose down -v' during ordinary use — it deletes named volumes.
+
+name: vehiclevault
+
+services:
+
+  # ──────────────────────────────────────────────
+  # Frontend — React + Nginx
+  # ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vehiclevault-frontend
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ──────────────────────────────────────────────
+  # Backend — Node.js + Express
+  # ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vehiclevault-backend
+    restart: unless-stopped
+    # Backend is NOT exposed to the host — only reachable via Nginx proxy
+    expose:
+      - "5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      UPLOAD_DIR: /app/uploads
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
+      MONGO_HOST: mongodb
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-vehiclevault}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      # Full URI — overrides individual settings if provided
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_DB_NAME:-vehiclevault}?authSource=admin
+    volumes:
+      # Named volume for uploaded PDFs.
+      # This survives container deletion and image rebuilds (Assignment 1).
+      - vehicle_documents:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+  # ──────────────────────────────────────────────
+  # MongoDB
+  # ──────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: vehiclevault-mongodb
+    restart: unless-stopped
+    # MongoDB is NOT exposed to the host network
+    expose:
+      - "27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-vehiclevault}
+    volumes:
+      # Named volume for MongoDB data files.
+      # Data survives container deletion and version upgrades (Assignment 1 & 2).
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+# ──────────────────────────────────────────────
+# Named Volumes (Assignment 1 requirement)
+# ──────────────────────────────────────────────
+# Named volumes are managed by Docker — data lives in Docker's volume store,
+# NOT in the container's writable filesystem layer.
+# This means:
+#   - Stopping or deleting the container does NOT delete the data.
+#   - Rebuilding the image does NOT delete the data.
+#   - Only 'docker compose down -v' or 'docker volume rm' destroys the data.
+volumes:
+  vehicle_documents:
+    # Stores PDF uploads — mounted at /app/uploads in the backend container
+  mongodb_data:
+    # Stores MongoDB data files — mounted at /data/db in the mongodb container
+
+# ──────────────────────────────────────────────
+# Internal Network
+# ──────────────────────────────────────────────
+# Only containers on this network can communicate.
+# The host (and the internet) cannot reach backend or mongodb directly.
+networks:
+  app-network:
+    driver: bridge
