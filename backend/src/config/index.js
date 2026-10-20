@@ -4,7 +4,10 @@
 
 'use strict';
 
-require('dotenv').config();
+const path = require('path');
+
+// Load the project-root .env even when the backend is started from backend/.
+require('dotenv').config({ path: path.resolve(__dirname, '../../..', '.env') });
 
 function required(name) {
   const value = process.env[name];
@@ -23,7 +26,7 @@ const config = {
   mongodb: {
     uri: optional(
       'MONGODB_URI',
-      `mongodb://${optional('MONGO_INITDB_ROOT_USERNAME', 'vaultuser')}:${optional('MONGO_INITDB_ROOT_PASSWORD', 'vaultpass')}@${optional('MONGO_HOST', 'mongodb')}:27017/${optional('MONGO_DB_NAME', 'vehiclevault')}?authSource=admin`
+      `mongodb://${optional('MONGO_INITDB_ROOT_USERNAME', 'vaultuser')}:${optional('MONGO_INITDB_ROOT_PASSWORD', 'vaultpass')}@${optional('MONGO_HOST', 'localhost')}:27017/${optional('MONGO_DB_NAME', 'vehiclevault')}?authSource=admin`
     ),
     dbName: optional('MONGO_DB_NAME', 'vehiclevault'),
   },

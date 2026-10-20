@@ -39,7 +39,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -91,9 +91,11 @@ services:
     image: mongo:7.0
     container_name: vehiclevault-mongodb
     restart: unless-stopped
-    # MongoDB is NOT exposed to the host network
+    # MongoDB is reachable only from this Compose network and host loopback
     expose:
       - "27017"
+    ports:
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
